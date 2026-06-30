@@ -1,36 +1,96 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# data.hellovaler.io — Personal Analytics Dashboard
 
-## Getting Started
+A private GA4 analytics dashboard deployed at `data.hellovaler.io`. Password-protected, dark mode, server-side only credential access.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Setup
+
+### 1. Find your GA4 numeric property ID
+
+1. Open [analytics.google.com](https://analytics.google.com)
+2. Click the gear icon (Admin) in the bottom-left
+3. Under **Property**, click **Property Settings**
+4. Your **Property ID** is the number shown at the top right (e.g. `317481234`) — copy it
+
+### 2. Create a Google service account
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com)
+2. Select or create a project (e.g. "Analytics Dashboard")
+3. In the left menu: **APIs & Services → Enabled APIs & Services**
+4. Click **+ Enable APIs and Services**, search for **Google Analytics Data API**, enable it
+5. Go to **APIs & Services → Credentials**
+6. Click **+ Create Credentials → Service Account**
+7. Give it any name (e.g. `analytics-reader`), click **Done**
+8. Click the service account you just created, go to the **Keys** tab
+9. Click **Add Key → Create new key → JSON** — this downloads a `.json` file
+
+### 3. Grant the service account access to your GA4 property
+
+1. Back in GA4 Admin → **Property Access Management** (under Property column)
+2. Click the **+** button → **Add users**
+3. Enter the service account email (looks like `analytics-reader@your-project.iam.gserviceaccount.com`)
+4. Set role to **Viewer**, save
+
+### 4. Set environment variables
+
+Copy `.env.local.example` to `.env.local` and fill in:
+
+```
+DASHBOARD_PASSWORD=your-chosen-password
+
+# The numeric property ID from step 1
+GA4_PROPERTY_ID=317481234
+
+# Paste the entire contents of the downloaded JSON key file as a single line
+GOOGLE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+To paste the JSON as one line, run:
+```bash
+cat /path/to/downloaded-key.json | tr -d '\n'
+```
+Then paste the output as the value of `GOOGLE_SERVICE_ACCOUNT_JSON`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 5. Run locally
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm install
+npm run dev
+```
 
-## Learn More
+Open [http://localhost:3000](http://localhost:3000) and enter your password.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deploy to Vercel
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Initial deploy
 
-## Deploy on Vercel
+1. Push this repo to GitHub
+2. Go to [vercel.com/new](https://vercel.com/new) and import the repo
+3. In the **Environment Variables** section, add the three variables from step 4 above
+4. Deploy
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Add the custom domain
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. In Vercel, go to your project → **Settings → Domains**
+2. Add `data.hellovaler.io`
+3. Vercel will show you a CNAME record to add — go to your DNS provider and add:
+   - **Type:** CNAME
+   - **Name:** `data`
+   - **Value:** `cname.vercel-dns.com`
+4. Wait for DNS propagation (usually a few minutes, up to an hour)
+
+### Update environment variables on Vercel
+
+After deploying, go to **Settings → Environment Variables** and confirm all three are set. Any change requires a redeploy (Vercel does this automatically when you push).
+
+---
+
+## Data notes
+
+- All data is fetched live from the GA4 Data API — no database
+- Responses are cached for 1 hour server-side (`revalidate = 3600`)
+- The session explorer groups by `sessionId` — it shows one row per session with landing page, exit page, page count, and duration. Page-by-page sequence is not available via the GA4 Data API (that requires BigQuery export).
+- GA4 property ID in the tracking snippet (`G-MNGEE06DVE`) is different from the numeric property ID used by the API
