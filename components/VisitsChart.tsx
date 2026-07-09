@@ -15,6 +15,7 @@ import {
 import Widget from "./Widget";
 import { useChartTheme } from "./ThemeProvider";
 import { useDateRange } from "@/context/DateRange";
+import { serializeFilters } from "@/lib/gaFilters";
 
 type Row = { date: string; sessions: number; activeUsers: number };
 type Mode = "7d" | "30d";
@@ -119,12 +120,13 @@ export default function VisitsChart() {
   dragCurrentRef.current = dragCurrent;
 
   const ct = useChartTheme();
-  const { startDate: globalStart, endDate: globalEnd, isFiltered, setDateRange, reset } = useDateRange();
+  const { startDate: globalStart, endDate: globalEnd, isFiltered, setDateRange, reset, dimensionFilters } = useDateRange();
 
-  const load = useCallback((m: Mode, offset: number, anchor: string | null) => {
+  const load = useCallback((m: Mode, offset: number, anchor: string | null, dimFilters: typeof dimensionFilters) => {
     setLoading(true);
     const { startDate, endDate } = getDateRange(m, offset, anchor);
-    fetch(`/api/ga/visits?startDate=${startDate}&endDate=${endDate}`)
+    const fp = serializeFilters(dimFilters);
+    fetch(`/api/ga/visits?startDate=${startDate}&endDate=${endDate}${fp ? `&filters=${fp}` : ""}`)
       .then((r) => r.json())
       .then((d) => {
         if (d && Array.isArray(d.rows)) {
@@ -140,17 +142,18 @@ export default function VisitsChart() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    load(mode, weekOffset, lastAvailableDate);
+    load(mode, weekOffset, lastAvailableDate, dimensionFilters);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [load, mode, weekOffset]);
+  }, [load, mode, weekOffset, JSON.stringify(dimensionFilters)]);
 
   useEffect(() => {
     if (mode === "7d" && lastAvailableDate && !anchorApplied) {
       setAnchorApplied(true);
-      load("7d", weekOffset, lastAvailableDate);
+      load("7d", weekOffset, lastAvailableDate, dimensionFilters);
     }
   }, [mode, lastAvailableDate, anchorApplied, load, weekOffset]);
 

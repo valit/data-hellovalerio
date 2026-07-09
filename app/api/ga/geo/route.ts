@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getGAClient, getPropertyId } from "@/lib/ga";
+import { parseFiltersParam, buildGAFilterExpression } from "@/lib/gaFilters";
 
 export const dynamic = "force-dynamic";
 
@@ -7,6 +8,9 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const startDate = searchParams.get("startDate") ?? "30daysAgo";
   const endDate = searchParams.get("endDate") ?? "today";
+  // Self-exclusion: geo does not filter by its own type.
+  const filters = parseFiltersParam(searchParams.get("filters")).filter((f) => f.type !== "geo");
+  const dimensionFilter = buildGAFilterExpression(filters);
 
   try {
     const client = getGAClient();
@@ -19,6 +23,7 @@ export async function GET(req: NextRequest) {
       metrics: [{ name: "sessions" }, { name: "activeUsers" }],
       orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
       limit: 50,
+      ...(dimensionFilter ? { dimensionFilter } : {}),
     });
 
     const rows = (response.rows ?? []).map((row) => ({

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getGAClient, getPropertyId, safeNum } from "@/lib/ga";
+import { parseFiltersParam, buildGAFilterExpression } from "@/lib/gaFilters";
 
 export const dynamic = "force-dynamic";
 
@@ -7,6 +8,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const startDate = searchParams.get("startDate") ?? "30daysAgo";
   const endDate = searchParams.get("endDate") ?? "today";
+  const dimensionFilter = buildGAFilterExpression(parseFiltersParam(searchParams.get("filters")));
 
   try {
     const client = getGAClient();
@@ -21,6 +23,7 @@ export async function GET(req: NextRequest) {
         { name: "bounceRate" },
         { name: "averageSessionDuration" },
       ],
+      ...(dimensionFilter ? { dimensionFilter } : {}),
     });
 
     const row = response.rows?.[0];
